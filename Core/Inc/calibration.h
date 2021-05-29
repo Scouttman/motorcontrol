@@ -17,7 +17,7 @@
 #define T1		1.0f							// Cal settling period
 #define PPAIRS_MAX 64
 #define SAMPLES_PER_PPAIR N_LUT
-#define N_CAL SAMPLES_PER_PPAIR*PPAIRS_MAX		// Calibration lookup table maximum length, so I don't have to deal with dynamic allocation based on number of pole pairs
+#define N_CAL 10 // this is where most of the ram goes.... //SAMPLES_PER_PPAIR*PPAIRS_MAX		// Calibration lookup table maximum length, so I don't have to deal with dynamic allocation based on number of pole pairs
 
 typedef struct{
 	uint8_t ppairs;									// number of pole pairs measured
