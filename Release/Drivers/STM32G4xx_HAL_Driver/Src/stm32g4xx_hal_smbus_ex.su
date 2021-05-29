@@ -1,0 +1,2 @@
+stm32g4xx_hal_smbus_ex.c:97:6:HAL_SMBUSEx_EnableFastModePlus	8	static
+stm32g4xx_hal_smbus_ex.c:126:6:HAL_SMBUSEx_DisableFastModePlus	8	static
