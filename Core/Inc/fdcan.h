@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
-  * @file    can.h
+  * @file    fdcan.h
   * @brief   This file contains all the function prototypes for
-  *          the can.c file
+  *          the fdcan.c file
   ******************************************************************************
   * @attention
   *
@@ -17,8 +17,8 @@
   ******************************************************************************
   */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __CAN_H__
-#define __CAN_H__
+#ifndef __FDCAN_H__
+#define __FDCAN_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,47 +31,22 @@ extern "C" {
 
 /* USER CODE END Includes */
 
-extern CAN_HandleTypeDef hcan1;
+extern FDCAN_HandleTypeDef hfdcan1;
 
 /* USER CODE BEGIN Private defines */
-//#define P_MIN -12.5f
-//#define P_MAX 12.5f
-//#define V_MIN -65.0f
-//#define V_MAX 65.0f
-#define KP_MIN 0.0f
-//#define KP_MAX 500.0f
-#define KD_MIN 0.0f
-//#define KD_MAX 5.0f
-#define T_MIN -18.0f
-#define T_MAX 18.0f
+
 /* USER CODE END Private defines */
 
-void MX_CAN1_Init(void);
+void MX_FDCAN1_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-typedef struct{
-	uint8_t id;
-	uint8_t data[8];
-	CAN_RxHeaderTypeDef rx_header;
-	CAN_FilterTypeDef filter;
-}CANRxMessage ;
 
-typedef struct{
-	uint8_t id;
-	uint8_t data[6];
-	CAN_TxHeaderTypeDef tx_header;
-}CANTxMessage ;
-
-void can_rx_init(CANRxMessage *msg);
-void can_tx_init(CANTxMessage *msg);
-void pack_reply(CANTxMessage *msg, uint8_t id, float p, float v, float t);
-void unpack_cmd(CANRxMessage msg, float *commands);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __CAN_H__ */
+#endif /* __FDCAN_H__ */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
