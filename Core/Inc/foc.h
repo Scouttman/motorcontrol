@@ -7,6 +7,7 @@
 
 #ifndef INC_FOC_H_
 #define INC_FOC_H_
+#define ADC_BUF_LEN 2
 
 #include <stdint.h>
 #include "position_sensor.h"
@@ -14,7 +15,7 @@
 
 typedef struct{
 	uint32_t tim_ch_w;								// Terminal W timer channel
-    int adc_a_raw, adc_b_raw, adc_c_raw, adc_vbus_raw;      // Raw ADC Values
+    int adc_a_raw, adc_b_raw, adc_c_raw, adc_vbus_raw, adc_done;      // Raw ADC Values
     float i_a, i_b, i_c;                                    // Phase currents
     float v_bus, v_bus_filt;                                // DC link voltage
     float theta_mech, theta_elec;                           // Rotor mechanical and electrical angle
@@ -56,6 +57,10 @@ typedef struct{
     float trust;											// Temperature observer "trust' (kind of like 1/covariance)
     float delta_t;											// Temperature rise
     }   ObserverStruct;
+
+uint16_t adc1_buf[ADC_BUF_LEN];
+uint16_t adc2_buf[ADC_BUF_LEN];
+int adc_done;
 
 void set_dtc(ControllerStruct *controller);
 void analog_sample(ControllerStruct *controller);

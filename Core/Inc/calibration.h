@@ -17,7 +17,7 @@
 #define T1		1.0f							// Cal settling period
 #define PPAIRS_MAX 64
 #define SAMPLES_PER_PPAIR N_LUT
-#define N_CAL 10 // this is where most of the ram goes.... //SAMPLES_PER_PPAIR*PPAIRS_MAX		// Calibration lookup table maximum length, so I don't have to deal with dynamic allocation based on number of pole pairs
+//#define N_CAL 10 // this is where most of the ram goes.... //SAMPLES_PER_PPAIR*PPAIRS_MAX		// Calibration lookup table maximum length, so I don't have to deal with dynamic allocation based on number of pole pairs
 
 typedef struct{
 	uint8_t ppairs;									// number of pole pairs measured
@@ -32,16 +32,20 @@ typedef struct{
 	uint8_t done_ordering, done_cal, done_rl;		// flags for different cals finished
 	uint16_t sample_count;							// keep track of how many samples taken
 	float next_sample_time;							// time to take next sample
-	int error_arr[N_CAL];
+	//int error_arr[N_CAL];
 	int lut_arr[N_LUT];
 	EncoderStruct cal_position;						// Position reference used for calibration
 
 } CalStruct;
 
+long long ezero_mean;
+
 void order_phases(EncoderStruct *encoder, ControllerStruct *controller, CalStruct *cal, int loop_count);
 void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, CalStruct *cal,
 		int loop_count);
 void measure_lr(EncoderStruct *encoder, ControllerStruct *controller, CalStruct *cal,  int loop_count);
+void home_encoder(EncoderStruct *encoder, ControllerStruct *controller, CalStruct * cal, int loop_count);
+void get_e_angel(EncoderStruct *encoder, ControllerStruct *controller, CalStruct * cal, int loop_count);
 
 //extern int *error_array;
 //extern int *lut_array;
