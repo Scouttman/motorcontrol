@@ -23,6 +23,17 @@
 #include "stm32g4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include "structs.h"
+#include "usart.h"
+#include "fsm.h"
+#include "gpio.h"
+//#include "adc.h"
+#include "foc.h"
+#include "fdcan.h"
+#include "position_sensor.h"
+#include "hw_config.h"
+#include "user_config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,7 +67,9 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-
+extern DMA_HandleTypeDef hdma_adc1;
+extern DMA_HandleTypeDef hdma_adc2;
+extern TIM_HandleTypeDef htim1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -198,6 +211,111 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32g4xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles DMA1 channel1 global interrupt.
+  */
+void DMA1_Channel1_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel1_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_adc1);
+  /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 channel2 global interrupt.
+  */
+void DMA1_Channel2_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel2_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel2_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_adc2);
+  /* USER CODE BEGIN DMA1_Channel2_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line[9:5] interrupts.
+  */
+void EXTI9_5_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI9_5_IRQn 0 */
+  if(__HAL_GPIO_EXTI_GET_FLAG(ENC_A_Pin)){
+    if(HAL_GPIO_ReadPin(ENC_A_GPIO_Port, ENC_A_Pin)){
+      if(HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin)){
+        ps_increment(&comm_encoder, true);
+      }else{
+        ps_increment(&comm_encoder, false);
+      }
+    }else{
+      if(HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin)){
+        ps_increment(&comm_encoder, false);
+      }else{
+        ps_increment(&comm_encoder, true);
+      }
+    }
+  }
+  if(__HAL_GPIO_EXTI_GET_FLAG(ENC_B_Pin)){
+    if(HAL_GPIO_ReadPin(ENC_A_GPIO_Port, ENC_A_Pin)){
+      if(HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin)){
+        ps_increment(&comm_encoder, false);
+      }else{
+        ps_increment(&comm_encoder, true);
+      }
+    }else{
+      if(HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin)){
+        ps_increment(&comm_encoder, true);
+      }else{
+        ps_increment(&comm_encoder, false);
+      }
+    }
+  }
+  if(__HAL_GPIO_EXTI_GET_FLAG(ENC_Z_Pin)){
+    ps_home(&comm_encoder);
+  }
+  /* USER CODE END EXTI9_5_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_6);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8);
+  /* USER CODE BEGIN EXTI9_5_IRQn 1 */
+
+  /* USER CODE END EXTI9_5_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM1 update interrupt and TIM16 global interrupt.
+  */
+void TIM1_UP_TIM16_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 0 */
+
+	//HAL_GPIO_WritePin(LED1, GPIO_PIN_SET );	// Useful for timing
+
+	/* Sample ADCs */
+	analog_sample(&controller);
+
+	/* Sample position sensor */
+	ps_sample(&comm_encoder, DT);
+
+	/* Run Finite State Machine */
+	run_fsm(&state);
+
+	/* increment loop count */
+	controller.loop_count++;
+	//HAL_GPIO_WritePin(LED1, GPIO_PIN_RESET );
+
+  /* USER CODE END TIM1_UP_TIM16_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim1);
+  /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 1 */
+
+  /* USER CODE END TIM1_UP_TIM16_IRQn 1 */
+}
 
 /* USER CODE BEGIN 1 */
 
