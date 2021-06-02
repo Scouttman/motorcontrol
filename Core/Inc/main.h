@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "stm32g4xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -58,18 +58,23 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define B1_Pin GPIO_PIN_13
-#define B1_GPIO_Port GPIOC
-#define USART_TX_Pin GPIO_PIN_2
-#define USART_TX_GPIO_Port GPIOA
-#define USART_RX_Pin GPIO_PIN_3
-#define USART_RX_GPIO_Port GPIOA
-#define TMS_Pin GPIO_PIN_13
-#define TMS_GPIO_Port GPIOA
-#define TCK_Pin GPIO_PIN_14
-#define TCK_GPIO_Port GPIOA
-#define SWO_Pin GPIO_PIN_3
-#define SWO_GPIO_Port GPIOB
+#define CAN_TERM_Pin GPIO_PIN_14
+#define CAN_TERM_GPIO_Port GPIOC
+#define VBUS_Pin GPIO_PIN_0
+#define VBUS_GPIO_Port GPIOA
+#define LED1_Pin GPIO_PIN_6
+#define LED1_GPIO_Port GPIOC
+#define CAN_SHDN_Pin GPIO_PIN_11
+#define CAN_SHDN_GPIO_Port GPIOC
+#define ENC_A_Pin GPIO_PIN_6
+#define ENC_A_GPIO_Port GPIOB
+#define ENC_A_EXTI_IRQn EXTI9_5_IRQn
+#define ENC_B_Pin GPIO_PIN_7
+#define ENC_B_GPIO_Port GPIOB
+#define ENC_B_EXTI_IRQn EXTI9_5_IRQn
+#define ENC_Z_Pin GPIO_PIN_8
+#define ENC_Z_GPIO_Port GPIOB
+#define ENC_Z_EXTI_IRQn EXTI9_5_IRQn
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

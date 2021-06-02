@@ -26,8 +26,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
-#include "can.h"
-#include "spi.h"
+#include "dma.h"
+#include "fdcan.h"
+#include "opamp.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -37,15 +38,17 @@
 #include "structs.h"
 #include <stdio.h>
 #include <string.h>
+#include "retarget.h"
 
-#include "stm32f4xx_flash.h"
+#include "stm32g4xx.h"
+#include "stm32g4xx_hal_flash.h"
 #include "flash_writer.h"
 #include "position_sensor.h"
 #include "preference_writer.h"
 #include "hw_config.h"
 #include "user_config.h"
 #include "fsm.h"
-#include "drv8323.h"
+//#include "drv8323.h"
 #include "foc.h"
 #include "math_ops.h"
 #include "calibration.h"
@@ -63,8 +66,7 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
-#define VERSION_NUM 2.0f
-
+#define VERSION_NUM 2.1f
 
 /* USER CODE END PM */
 
@@ -86,16 +88,18 @@ ObserverStruct observer;
 COMStruct com;
 FSMStruct state;
 EncoderStruct comm_encoder;
-DRVStruct drv;
+// DRVStruct drv;
 CalStruct comm_encoder_cal;
-CANTxMessage can_tx;
-CANRxMessage can_rx;
+// CANTxMessage can_tx;
+// CANRxMessage can_rx;
 
 /* init but don't allocate calibration arrays */
 int *error_array = NULL;
 int *lut_array = NULL;
 
 uint8_t Serial2RxBuffer[1];
+
+//uint16_t adc_buf[ADC_BUF_LEN];
 
 /* USER CODE END PV */
 
@@ -141,15 +145,18 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
-  MX_CAN1_Init();
-  MX_SPI1_Init();
-  MX_SPI3_Init();
+  MX_USART2_UART_Init();
+  MX_FDCAN1_Init();
+  MX_OPAMP1_Init();
+  MX_OPAMP2_Init();
+  MX_OPAMP3_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
-  MX_ADC3_Init();
   /* USER CODE BEGIN 2 */
+  /* setup printf */
+  RetargetInit(&huart2);
 
   /* Load settings from flash */
   preference_writer_init(&prefs, 6);
@@ -177,6 +184,8 @@ int main(void)
   if(isnan(P_MIN)){P_MIN = -12.5f;}
   if(isnan(V_MAX)){V_MAX = 65.0f;}
   if(isnan(V_MIN)){V_MIN = -65.0f;}
+  PPAIRS = 7; // TODO forced pole pairs
+  PHASE_ORDER = 1;
 
   printf("\r\nFirmware Version Number: %.2f\r\n", VERSION_NUM);
 
@@ -197,57 +206,66 @@ int main(void)
   comm_encoder.m_zero = M_ZERO;
   comm_encoder.e_zero = E_ZERO;
   comm_encoder.ppairs = PPAIRS;
-  ps_warmup(&comm_encoder, 100);			// clear the noisy data when the encoder first turns on
+  // ps_warmup(&comm_encoder, 100);			// clear the noisy data when the encoder first turns on
 
-  if(EN_ENC_LINEARIZATION){memcpy(&comm_encoder.offset_lut, &ENCODER_LUT, sizeof(comm_encoder.offset_lut));}	// Copy the linearization lookup table
-  else{memset(&comm_encoder.offset_lut, 0, sizeof(comm_encoder.offset_lut));}
+//  if(EN_ENC_LINEARIZATION){memcpy(&comm_encoder.offset_lut, &ENCODER_LUT, sizeof(comm_encoder.offset_lut));}	// Copy the linearization lookup table
+//  else{memset(&comm_encoder.offset_lut, 0, sizeof(comm_encoder.offset_lut));}
   //for(int i = 0; i<128; i++){printf("%d\r\n", comm_encoder.offset_lut[i]);}
 
   /* Turn on ADCs */
-  HAL_ADC_Start(&hadc1);
-  HAL_ADC_Start(&hadc2);
-  HAL_ADC_Start(&hadc3);
-
-  /* DRV8323 setup */
-  HAL_GPIO_WritePin(DRV_CS, GPIO_PIN_SET ); 	// CS high
-  HAL_GPIO_WritePin(ENABLE_PIN, GPIO_PIN_SET );
-  HAL_Delay(1);
-  //drv_calibrate(drv);
-  HAL_Delay(1);
-  drv_write_DCR(drv, 0x0, DIS_GDF_EN, 0x0, PWM_MODE_3X, 0x0, 0x0, 0x0, 0x0, 0x1);
-  HAL_Delay(1);
-  drv_write_CSACR(drv, 0x0, 0x1, 0x0, CSA_GAIN_40, 0x0, 0x1, 0x1, 0x1, SEN_LVL_1_0);
-  HAL_Delay(1);
   zero_current(&controller);
-  HAL_Delay(1);
-  drv_write_CSACR(drv, 0x0, 0x1, 0x0, CSA_GAIN_40, 0x1, 0x0, 0x0, 0x0, SEN_LVL_1_0);
-  HAL_Delay(1);
-  drv_write_OCPCR(drv, TRETRY_50US, DEADTIME_50NS, OCP_DEG_8US, OCP_DEG_8US, VDS_LVL_1_88);
-  HAL_Delay(1);
-  drv_disable_gd(drv);
-  HAL_Delay(1);
+  /* DRV8323 setup */
+//  HAL_GPIO_WritePin(DRV_CS, GPIO_PIN_SET ); 	// CS high
+//  HAL_GPIO_WritePin(ENABLE_PIN, GPIO_PIN_SET );
+//  HAL_Delay(1);
+//  //drv_calibrate(drv);
+//  HAL_Delay(1);
+//  drv_write_DCR(drv, 0x0, DIS_GDF_EN, 0x0, PWM_MODE_3X, 0x0, 0x0, 0x0, 0x0, 0x1);
+//  HAL_Delay(1);
+//  drv_write_CSACR(drv, 0x0, 0x1, 0x0, CSA_GAIN_40, 0x0, 0x1, 0x1, 0x1, SEN_LVL_1_0);
+//  HAL_Delay(1);
+//  zero_current(&controller);
+//  HAL_Delay(1);
+//  drv_write_CSACR(drv, 0x0, 0x1, 0x0, CSA_GAIN_40, 0x1, 0x0, 0x0, 0x0, SEN_LVL_1_0);
+//  HAL_Delay(1);
+//  drv_write_OCPCR(drv, TRETRY_50US, DEADTIME_50NS, OCP_DEG_8US, OCP_DEG_8US, VDS_LVL_1_88);
+//  HAL_Delay(1);
+//  drv_disable_gd(drv);
+//  HAL_Delay(1);
   //drv_enable_gd(drv);   */
-  printf("ADC A OFFSET: %d     ADC B OFFSET: %d\r\n", controller.adc_a_offset, controller.adc_b_offset);
+//  printf("ADC A OFFSET: %d     ADC B OFFSET: %d\r\n", controller.adc_a_offset, controller.adc_b_offset);
 
   /* Turn on PWM */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
 
   /* CAN setup */
-  can_rx_init(&can_rx);
-  can_tx_init(&can_tx);
-  HAL_CAN_Start(&CAN_H); //start CAN
-  __HAL_CAN_ENABLE_IT(&CAN_H, CAN_IT_RX_FIFO0_MSG_PENDING); // Start can interrupt
+  // can_rx_init(&can_rx);
+  // can_tx_init(&can_tx);
+  // HAL_CAN_Start(&CAN_H); //start CAN
+  // __HAL_CAN_ENABLE_IT(&CAN_H, CAN_IT_RX_FIFO0_MSG_PENDING); // Start can interrupt
 
   /* Set Interrupt Priorities */
   NVIC_SetPriority(PWM_ISR, 1); // commutation > communication
   NVIC_SetPriority(CAN_ISR, 3);
 
   /* Start the FSM */
-  state.state = MENU_MODE;
-  state.next_state = MENU_MODE;
+//  state.state = MENU_MODE;
+//  state.next_state = MENU_MODE;
+//  state.ready = 1;
+
+  /* home the encoder */
+  state.state = HOME_ENCODER;
+  state.next_state = HOME_ENCODER;
   state.ready = 1;
+
+//    state.state = MOTOR_MODE;
+//    state.next_state = MOTOR_MODE;
+//    state.ready = 1;
 
 
   /* Turn on interrupts */
@@ -262,10 +280,11 @@ int main(void)
   {
 
 	  HAL_Delay(100);
-	  drv_print_faults(drv);
+	  // drv_print_faults(drv);
 	  if(state.state==MOTOR_MODE){
-	  //	  printf("%.2f %.2f %.2f %.2f %.2f\r\n", controller.i_a, controller.i_b, controller.i_d, controller.i_q, controller.dtheta_elec);
+	  	  printf("%.2f %.2f %.2f %.2f %.2f\r\n", controller.i_a, controller.i_b, controller.i_d, controller.i_q, controller.dtheta_elec);
 	  }
+//	  printf("pos:%d\r\n", comm_encoder.pos);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -281,11 +300,11 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Configure the main internal regulator output voltage
   */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST);
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
@@ -293,18 +312,12 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 180;
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV2;
+  RCC_OscInitStruct.PLL.PLLN = 85;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 2;
-  RCC_OscInitStruct.PLL.PLLR = 2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Activate the Over-Drive mode
-  */
-  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
     Error_Handler();
   }
@@ -317,7 +330,18 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Initializes the peripherals clocks
+  */
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_ADC12
+                              |RCC_PERIPHCLK_FDCAN;
+  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+  PeriphClkInit.FdcanClockSelection = RCC_FDCANCLKSOURCE_PCLK1;
+  PeriphClkInit.Adc12ClockSelection = RCC_ADC12CLKSOURCE_SYSCLK;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
