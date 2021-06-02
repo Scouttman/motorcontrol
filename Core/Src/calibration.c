@@ -102,8 +102,8 @@ void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, Cal
 		if(cal->time > cal->next_sample_time){
 			int count_ref = cal->theta_ref * (float)ENC_CPR/(2.0f*PI_F*PPAIRS);
 			int error = encoder->raw - count_ref;//- encoder->raw;
-			cal->error_arr[cal->sample_count] = error + ENC_CPR*(error<0);
-			printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_ref);
+//			cal->error_arr[cal->sample_count] = error + ENC_CPR*(error<0);
+			printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, error, cal->theta_ref);
 			cal->next_sample_time += 2.0f*PI_F/(W_CAL*SAMPLES_PER_PPAIR);
 			if(cal->sample_count == PPAIRS*SAMPLES_PER_PPAIR-1){
 				return;
@@ -126,9 +126,10 @@ void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, Cal
 			int count_ref = cal->theta_ref * (float)ENC_CPR/(2.0f*PI_F*PPAIRS);
 			int error = encoder->raw - count_ref;// - encoder->raw;
 			error = error + ENC_CPR*(error<0);
+			ezero_mean += error;
 
-			cal->error_arr[cal->sample_count] = (cal->error_arr[cal->sample_count] + error)/2;
-			printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_ref);
+//			cal->error_arr[cal->sample_count] = (cal->error_arr[cal->sample_count] + error)/2;
+			printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, error, cal->theta_ref);
 			cal->sample_count--;
 			cal->next_sample_time += 2.0f*PI_F/(W_CAL*SAMPLES_PER_PPAIR);
 		}
@@ -138,23 +139,23 @@ void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, Cal
     reset_foc(controller);
 
     // Calculate average offset
-    int ezero_mean = 0;
-	for(int i = 0; i<((int)PPAIRS*SAMPLES_PER_PPAIR); i++){
-		ezero_mean += cal->error_arr[i];
-	}
+//    int ezero_mean = 0;
+//	for(int i = 0; i<((int)PPAIRS*SAMPLES_PER_PPAIR); i++){
+//		ezero_mean += cal->error_arr[i];
+//	}
 	cal->ezero = ezero_mean/(SAMPLES_PER_PPAIR*PPAIRS);
 
 	// Moving average to filter out cogging ripple
 
 	int window = SAMPLES_PER_PPAIR;
-	int lut_offset = (ENC_CPR-cal->error_arr[0])*N_LUT/ENC_CPR;
+	int lut_offset = 0; //(ENC_CPR-cal->error_arr[0])*N_LUT/ENC_CPR;
 	for(int i = 0; i<N_LUT; i++){
 			int moving_avg = 0;
 			for(int j = (-window)/2; j<(window)/2; j++){
 				int index = i*PPAIRS*SAMPLES_PER_PPAIR/N_LUT + j;
 				if(index<0){index += (SAMPLES_PER_PPAIR*PPAIRS);}
 				else if(index>(SAMPLES_PER_PPAIR*PPAIRS-1)){index -= (SAMPLES_PER_PPAIR*PPAIRS);}
-				moving_avg += cal->error_arr[index];
+//				moving_avg += cal->error_arr[index];
 			}
 			moving_avg = moving_avg/window;
 			int lut_index = lut_offset + i;
@@ -166,6 +167,134 @@ void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, Cal
 
 	cal->started = 0;
 	cal->done_cal = 1;
+}
+
+void home_encoder(EncoderStruct *encoder, ControllerStruct *controller, CalStruct * cal, int loop_count){
+	/* home the encoder */
+
+  if(!cal->started){
+    printf("Starting to home encoder\n");
+    cal->started = 1;
+    cal->start_count = loop_count;
+    cal->next_sample_time = T1;
+    cal->sample_count = 0;
+  }
+
+	cal->time = (float)(loop_count - cal->start_count)*DT;
+
+  if(cal->time < T1){
+    // Set voltage angle to zero, wait for rotor position to settle
+    cal->theta_ref = 0;//W_CAL*cal->time;
+    cal->cal_position.elec_angle = cal->theta_ref;
+    controller->i_d_des = I_CAL;
+    controller->i_q_des = 0.0f;
+    commutate(controller, &cal->cal_position);
+
+    cal->theta_start = encoder->angle_multiturn[0];
+    cal->next_sample_time = cal->time;
+    return;
+  }
+  else if (cal->time < T1+2.0f*PI_F*PPAIRS/W_CAL){
+    // rotate voltage vector through one mechanical rotation in the positive direction
+    cal->theta_ref += W_CAL*DT;//(cal->time-T1);
+    cal->cal_position.elec_angle = cal->theta_ref;
+    commutate(controller, &cal->cal_position);
+
+    // sample SAMPLES_PER_PPAIR times per pole-pair
+    if(cal->time > cal->next_sample_time){
+      int count_ref = cal->theta_ref * (float)ENC_CPR/(2.0f*PI_F*PPAIRS);
+      int error = encoder->pos - count_ref;//- encoder->raw;
+  //			cal->error_arr[cal->sample_count] = error + ENC_CPR*(error<0);
+//      printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, error, cal->theta_ref);
+      cal->next_sample_time += 2.0f*PI_F/(W_CAL*SAMPLES_PER_PPAIR);
+      if(cal->sample_count == PPAIRS*SAMPLES_PER_PPAIR-1){
+        return;
+      }
+      cal->sample_count++;
+    }
+    return;
+  }
+//	else if (cal->time < T1+4.0f*PI_F*PPAIRS/W_CAL){
+//		// rotate voltage vector through one mechanical rotation in the negative direction
+//		cal->theta_ref -= W_CAL*DT;//(cal->time-T1);
+//		controller->i_d_des = I_CAL;
+//		controller->i_q_des = 0.0f;
+//		cal->cal_position.elec_angle = cal->theta_ref;
+//		commutate(controller, &cal->cal_position);
+//
+//		// sample SAMPLES_PER_PPAIR times per pole-pair
+//		if((cal->time > cal->next_sample_time)&&(cal->sample_count>0)){
+//			int count_ref = cal->theta_ref * (float)ENC_CPR/(2.0f*PI_F*PPAIRS);
+//			int error = encoder->raw - count_ref;// - encoder->raw;
+//			error = error + ENC_CPR*(error<0);
+//			printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, error, cal->theta_ref);
+//			cal->sample_count--;
+//			cal->next_sample_time += 2.0f*PI_F/(W_CAL*SAMPLES_PER_PPAIR);
+//		}
+//		return;
+//  }
+  reset_foc(controller);
+
+  printf("Encoder homed\r\n");
+  cal->started = 0;
+  cal->done_cal = 1;
+}
+
+void get_e_angel(EncoderStruct *encoder, ControllerStruct *controller, CalStruct * cal, int loop_count){
+  /* home the encoder */
+
+  if(!cal->started){
+    printf("Starting to get e val\n");
+    cal->started = 1;
+    cal->start_count = loop_count;
+    cal->next_sample_time = 0;
+    cal->sample_count = 0;
+  }
+
+  cal->time = (float)(loop_count - cal->start_count)*DT;
+  if(cal->time < T1){
+      // Set voltage angle to zero, wait for rotor position to settle
+      cal->theta_ref = 0;//W_CAL*cal->time;
+      cal->cal_position.elec_angle = cal->theta_ref;
+      controller->i_d_des = I_CAL;
+      controller->i_q_des = 0.0f;
+      commutate(controller, &cal->cal_position);
+
+      cal->theta_start = encoder->angle_multiturn[0];
+      cal->next_sample_time = cal->time;
+      return;
+  }
+  else if (cal->time < 3*T1){
+    // rotate voltage vector through one mechanical rotation in the positive direction
+    cal->theta_ref += W_CAL*DT;//(cal->time-T1);
+    cal->cal_position.elec_angle = cal->theta_ref;
+    commutate(controller, &cal->cal_position);
+
+    // sample SAMPLES_PER_PPAIR times per pole-pair
+    if(cal->time > cal->next_sample_time){
+      int count_ref = cal->theta_ref * (float)ENC_CPR/(2.0f*PI_F*PPAIRS);
+      int error = encoder->raw - count_ref;//- encoder->raw;
+  //      cal->error_arr[cal->sample_count] = error + ENC_CPR*(error<0);
+      ezero_mean+=error;
+      printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, error, cal->theta_ref);
+      cal->next_sample_time += 2.0f*PI_F/(W_CAL*SAMPLES_PER_PPAIR);
+      if(cal->sample_count == PPAIRS*SAMPLES_PER_PPAIR-1){
+        return;
+      }
+      cal->sample_count++;
+    }
+    return;
+  }
+  reset_foc(controller);
+  printf("summed error:%lld\r\n", ezero_mean);
+  float tmp_ezero = ((float)ezero_mean)/((float)(cal->sample_count));
+  printf("avg_error:%f\r\n", tmp_ezero);
+  cal->ezero = (int)tmp_ezero;
+  printf("avg_error:%d\r\n", cal->ezero);
+  printf("Encoder homed\r\n");
+  cal->started = 0;
+  cal->done_cal = 1;
+
 }
 
 void measure_lr(EncoderStruct *encoder, ControllerStruct *controller, CalStruct * cal, int loop_count){
