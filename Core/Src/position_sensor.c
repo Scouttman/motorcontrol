@@ -11,16 +11,6 @@
 #include "hw_config.h"
 #include "user_config.h"
 
-void ps_warmup(EncoderStruct * encoder, int n){
-	/* Hall position sensors noisy on startup.  Take a bunch of samples to clear this data */
-	for(int i = 0; i<n; i++){
-		encoder->spi_tx_word = 0x0000;
-		HAL_GPIO_WritePin(ENC_CS, GPIO_PIN_RESET ); 	// CS low
-		HAL_SPI_TransmitReceive(&ENC_SPI, (uint8_t*)encoder->spi_tx_buff, (uint8_t *)encoder->spi_rx_buff, 1, 100);
-		while( ENC_SPI.State == HAL_SPI_STATE_BUSY );  					// wait for transmission complete
-		HAL_GPIO_WritePin(ENC_CS, GPIO_PIN_SET ); 	// CS high
-	}
-}
 
 void ps_sample(EncoderStruct * encoder, float dt){
 	/* updates EncoderStruct encoder with the latest sample
@@ -31,19 +21,14 @@ void ps_sample(EncoderStruct * encoder, float dt){
 	for(int i = N_POS_SAMPLES-1; i>0; i--){encoder->angle_multiturn[i] = encoder->angle_multiturn[i-1];}
 	//memmove(&encoder->angle_multiturn[1], &encoder->angle_multiturn[0], (N_POS_SAMPLES-1)*sizeof(float)); // this is much slower for some reason
 
-	/* SPI read/write */
-	encoder->spi_tx_word = ENC_READ_WORD;
-	HAL_GPIO_WritePin(ENC_CS, GPIO_PIN_RESET ); 	// CS low
-	HAL_SPI_TransmitReceive(&ENC_SPI, (uint8_t*)encoder->spi_tx_buff, (uint8_t *)encoder->spi_rx_buff, 1, 100);
-	while( ENC_SPI.State == HAL_SPI_STATE_BUSY );  					// wait for transmission complete
-	HAL_GPIO_WritePin(ENC_CS, GPIO_PIN_SET ); 	// CS high
-	encoder->raw = encoder ->spi_rx_word;
+	encoder->raw = encoder->pos;
 
 	/* Linearization */
-	int off_1 = encoder->offset_lut[(encoder->raw)>>9];				// lookup table lower entry
-	int off_2 = encoder->offset_lut[((encoder->raw>>9)+1)%128];		// lookup table higher entry
-	int off_interp = off_1 + ((off_2 - off_1)*(encoder->raw - ((encoder->raw>>9)<<9))>>9);     // Interpolate between lookup table entries
-	encoder->count = encoder->raw + off_interp;
+//	int off_1 = encoder->offset_lut[(encoder->raw)>>9];				// lookup table lower entry
+//	int off_2 = encoder->offset_lut[((encoder->raw>>9)+1)%128];		// lookup table higher entry
+//	int off_interp = off_1 + ((off_2 - off_1)*(encoder->raw - ((encoder->raw>>9)<<9))>>9);     // Interpolate between lookup table entries
+//	encoder->count = encoder->raw + off_interp;
+	encoder->count = encoder->raw;
 
 
 	/* Real angles in radians */
@@ -100,3 +85,19 @@ void ps_print(EncoderStruct * encoder, int dt_ms){
 	printf("   Turns:  %d\r\n", encoder->turns);
 	//HAL_Delay(dt_ms);
 }
+
+
+void ps_increment(EncoderStruct * encoder, bool dir){
+  if(dir)
+    encoder->pos++;
+  else
+    encoder->pos--;
+  if(encoder->pos < 0)
+    encoder->pos = ENC_CPR;
+}
+
+void ps_home(EncoderStruct * encoder){
+  encoder->pos = 0;
+  encoder->homed = true;
+}
+
