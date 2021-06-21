@@ -40,7 +40,7 @@ void MX_OPAMP1_Init(void)
 
   /* USER CODE END OPAMP1_Init 1 */
   hopamp1.Instance = OPAMP1;
-  hopamp1.Init.PowerMode = OPAMP_POWERMODE_NORMALSPEED;
+  hopamp1.Init.PowerMode = OPAMP_POWERMODE_HIGHSPEED;
   hopamp1.Init.Mode = OPAMP_PGA_MODE;
   hopamp1.Init.NonInvertingInput = OPAMP_NONINVERTINGINPUT_IO0;
   hopamp1.Init.InternalOutput = DISABLE;
@@ -69,7 +69,7 @@ void MX_OPAMP2_Init(void)
 
   /* USER CODE END OPAMP2_Init 1 */
   hopamp2.Instance = OPAMP2;
-  hopamp2.Init.PowerMode = OPAMP_POWERMODE_NORMALSPEED;
+  hopamp2.Init.PowerMode = OPAMP_POWERMODE_HIGHSPEED;
   hopamp2.Init.Mode = OPAMP_PGA_MODE;
   hopamp2.Init.NonInvertingInput = OPAMP_NONINVERTINGINPUT_IO0;
   hopamp2.Init.InternalOutput = DISABLE;
@@ -98,7 +98,7 @@ void MX_OPAMP3_Init(void)
 
   /* USER CODE END OPAMP3_Init 1 */
   hopamp3.Instance = OPAMP3;
-  hopamp3.Init.PowerMode = OPAMP_POWERMODE_NORMALSPEED;
+  hopamp3.Init.PowerMode = OPAMP_POWERMODE_HIGHSPEED;
   hopamp3.Init.Mode = OPAMP_PGA_MODE;
   hopamp3.Init.NonInvertingInput = OPAMP_NONINVERTINGINPUT_IO0;
   hopamp3.Init.InternalOutput = DISABLE;

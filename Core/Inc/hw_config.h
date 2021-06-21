@@ -16,10 +16,10 @@
 /* ADC */
 
 //#define ADC_CH_MAIN		hadc1				// ADC channel handle which drives simultaneous mode
-#define ADC_CH_IA		hadc1				// Phase A current sense ADC channel handle.  0 = unused
-#define ADC_CH_IB		hadc2				// Phase B current sense ADC channel handle.  0 = unused
-#define ADC_CH_IC		hadc1				// Phase C current sense ADC channel handle.  0 = unused
-#define ADC_CH_VBUS		hadc2				// Bus voltage ADC channel handle.  0 = unused
+//#define ADC_CH_IA		hadc1				// Phase A current sense ADC channel handle.  0 = unused
+//#define ADC_CH_IB		hadc2				// Phase B current sense ADC channel handle.  0 = unused
+//#define ADC_CH_IC		hadc1				// Phase C current sense ADC channel handle.  0 = unused
+//#define ADC_CH_VBUS		hadc2				// Bus voltage ADC channel handle.  0 = unused
 
 /* DRV Gate drive */
 #define ENABLE_PIN 		GPIOA, GPIO_PIN_11  // Enable gate drive pin.
@@ -40,12 +40,12 @@
 #define CAN_H			hcan1				// CAN handle
 
 /* Other hardware-related constants */
-#define I_SCALE 			0.02014160156f  // Amps per A/D Count
+#define I_SCALE 			0.003*(64.0/7.0) //0.02014160156f  // Amps per A/D Count
 #define V_SCALE 			0.012890625f    // Bus volts per A/D Count
-#define DTC_MAX 			0.94f          	// Max duty cycle
-#define DTC_MIN 			0.0f          	// Min duty cycle
+#define DTC_MAX 			0.6f          	// Max duty cycle //TODO Revert to 94%
+#define DTC_MIN 			0.4f          	// Min duty cycle //TODO revert to 0%
 #define DTC_COMP 			0.000f          // deadtime compensation (100 ns / 25 us)
-#define DT					.000025f		// Loop period
+#define DT					.000025f		// Loop period //TODO validate
 #define EN_ENC_LINEARIZATION 0				// Enable/disable encoder linearization
 
 
@@ -57,7 +57,7 @@
 #define K_SCALE 0.0001f             // K_loop/Loop BW (Hz) 0.0042
 #define KI_D 0.045f                // PI zero, in radians per sample
 #define KI_Q 0.045f                // PI zero, in radians per sample
-#define OVERMODULATION 1.15f        // 1.0 = no overmodulation
+#define OVERMODULATION 1.0f //1.15f        // 1.0 = no overmodulation
 #define CURRENT_FILT_ALPHA	.01f	// 1st order d/q current filter (not used in control)
 #define VBUS_FILT_ALPHA		.1f		// 1st order bus voltage filter
 

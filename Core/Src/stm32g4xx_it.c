@@ -294,8 +294,9 @@ void EXTI9_5_IRQHandler(void)
 void TIM1_UP_TIM16_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 0 */
+  //PWM_ISR
 
-	//HAL_GPIO_WritePin(LED1, GPIO_PIN_SET );	// Useful for timing
+	HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET );	// Useful for timing
 
 	/* Sample ADCs */
 	analog_sample(&controller);
@@ -308,7 +309,7 @@ void TIM1_UP_TIM16_IRQHandler(void)
 
 	/* increment loop count */
 	controller.loop_count++;
-	//HAL_GPIO_WritePin(LED1, GPIO_PIN_RESET );
+	HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET );
 
   /* USER CODE END TIM1_UP_TIM16_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);

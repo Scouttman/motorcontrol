@@ -100,6 +100,15 @@ int *lut_array = NULL;
 uint8_t Serial2RxBuffer[1];
 
 //uint16_t adc_buf[ADC_BUF_LEN];
+// Serial message
+union {
+  struct{
+    float pos;
+    float a;
+    float b;
+  };
+  char temp_array[3*4];
+} cur_message;
 
 /* USER CODE END PV */
 
@@ -184,8 +193,23 @@ int main(void)
   if(isnan(P_MIN)){P_MIN = -12.5f;}
   if(isnan(V_MAX)){V_MAX = 65.0f;}
   if(isnan(V_MIN)){V_MIN = -65.0f;}
+
+  I_BW = 500; // band width?
+  I_MAX = 1;
+  I_MAX_CONT = 1.0;
+  I_CAL = 1.0; // current used for calibration
   PPAIRS = 7; // TODO forced pole pairs
+  GR = 1; //gear ratio
+//  KT = 1; //torque cosntant
+//  KP_MAX = 10.0; //Max position gain (n-m/rad)
+  KD_MAX = 1.0;// max velocity gain N-m/rad/s
+  V_MAX = 1.0;
+  V_MIN = -1.0;
+
+
+
   PHASE_ORDER = 1;
+
 
   printf("\r\nFirmware Version Number: %.2f\r\n", VERSION_NUM);
 
@@ -212,8 +236,6 @@ int main(void)
 //  else{memset(&comm_encoder.offset_lut, 0, sizeof(comm_encoder.offset_lut));}
   //for(int i = 0; i<128; i++){printf("%d\r\n", comm_encoder.offset_lut[i]);}
 
-  /* Turn on ADCs */
-  zero_current(&controller);
   /* DRV8323 setup */
 //  HAL_GPIO_WritePin(DRV_CS, GPIO_PIN_SET ); 	// CS high
 //  HAL_GPIO_WritePin(ENABLE_PIN, GPIO_PIN_SET );
@@ -242,6 +264,17 @@ int main(void)
   HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
+
+  /* Turn on ADCs */
+  adc_done = 2; //start as complete
+  HAL_OPAMP_Start(&hopamp1);
+  HAL_OPAMP_Start(&hopamp2);
+  HAL_OPAMP_Start(&hopamp3);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc1_buf, ADC_BUF_LEN);
+  HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_buf, ADC_BUF_LEN);
+  zero_current(&controller);
+
+
 
   /* CAN setup */
   // can_rx_init(&can_rx);
@@ -279,10 +312,20 @@ int main(void)
   while (1)
   {
 
-	  HAL_Delay(100);
+	  HAL_Delay(25);
 	  // drv_print_faults(drv);
 	  if(state.state==MOTOR_MODE){
-	  	  printf("%.2f %.2f %.2f %.2f %.2f\r\n", controller.i_a, controller.i_b, controller.i_d, controller.i_q, controller.dtheta_elec);
+//	  	  printf("%.2f %.2f %.2f %.2f %.2f\r\n", controller.i_a, controller.i_b, controller.i_d, controller.i_q, controller.dtheta_elec); //TODO fix dtheta_elec
+//	        printf("%.2f %.2f %.2f\r\n", controller.theta_elec, controller.i_q_filt, controller.i_d_filt);
+//	  	  printf("%.3f %.3f %.3f\r\n", controller.theta_elec, controller.i_a, controller.i_b);
+//	        printf("%.3f %d %d %d\r\n", controller.theta_elec, controller.adc_a_raw , controller.adc_a_offset, controller.adc_a_raw - controller.adc_a_offset);
+//	    printf("%.3f %d %d\r\n", controller.theta_elec, controller.adc_a_raw, controller.adc_b_raw);
+//	        printf("%.3f %d %d %d\r\n", controller.theta_elec, controller.adc_a_raw-controller.adc_a_offset ,controller.adc_b_raw - controller.adc_b_offset , controller.adc_c_raw - controller.adc_c_offset);
+	    cur_message.pos = controller.theta_elec;
+	    cur_message.a = controller.i_a;
+	    cur_message.b = controller.i_b;
+	    _write(1, cur_message.temp_array, 12);
+	    printf("\r\n");
 	  }
 //	  printf("pos:%d\r\n", comm_encoder.pos);
     /* USER CODE END WHILE */
@@ -327,8 +370,8 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV8;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {

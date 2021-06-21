@@ -60,7 +60,7 @@ typedef struct{
 
 uint16_t adc1_buf[ADC_BUF_LEN];
 uint16_t adc2_buf[ADC_BUF_LEN];
-int adc_done;
+int adc_done; // Start as if complete
 
 void set_dtc(ControllerStruct *controller);
 void analog_sample(ControllerStruct *controller);

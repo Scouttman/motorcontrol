@@ -16,7 +16,6 @@
 #include "foc.h"
 #include "math_ops.h"
 #include "position_sensor.h"
-#include "drv8323.h"
 
  void run_fsm(FSMStruct * fsmstate){
 	 /* run_fsm is run every commutation interrupt cycle */
@@ -35,42 +34,47 @@
 			 break;
 
 		 case CALIBRATION_MODE:
-			 if(!comm_encoder_cal.done_ordering){
-				 order_phases(&comm_encoder, &controller, &comm_encoder_cal, controller.loop_count);
-			 }
-			 else if(!comm_encoder_cal.done_cal){
-				 calibrate_encoder(&comm_encoder, &controller, &comm_encoder_cal, controller.loop_count);
-			 }
-			 else{
-				 /* Exit calibration mode when done */
-				 //for(int i = 0; i<128*PPAIRS; i++){printf("%d\r\n", error_array[i]);}
-				 E_ZERO = comm_encoder_cal.ezero;
-				 printf("E_ZERO: %d  %f\r\n", E_ZERO, TWO_PI_F*fmodf((comm_encoder.ppairs*(float)(-E_ZERO))/((float)ENC_CPR), 1.0f));
-				 memcpy(&comm_encoder.offset_lut, comm_encoder_cal.lut_arr, sizeof(comm_encoder.offset_lut));
-				 memcpy(&ENCODER_LUT, comm_encoder_cal.lut_arr, sizeof(comm_encoder_cal.lut_arr));
-				 //for(int i = 0; i<128; i++){printf("%d\r\n", ENCODER_LUT[i]);}
-				 if (!preference_writer_ready(prefs)){ preference_writer_open(&prefs);}
-				 preference_writer_flush(&prefs);
-				 preference_writer_close(&prefs);
-				 preference_writer_load(prefs);
-				 update_fsm(fsmstate, 27);
+       if(!comm_encoder_cal.done_ordering){
+         order_phases(&comm_encoder, &controller, &comm_encoder_cal, controller.loop_count);
+       }
+       else if(!comm_encoder_cal.done_cal){
+         calibrate_encoder(&comm_encoder, &controller, &comm_encoder_cal, controller.loop_count);
+       }
+       else{
+         /* Exit calibration mode when done */
+         //for(int i = 0; i<128*PPAIRS; i++){printf("%d\r\n", error_array[i]);}
+         E_ZERO = comm_encoder_cal.ezero;
+         printf("E_ZERO: %d  %f\r\n", E_ZERO, TWO_PI_F*fmodf((comm_encoder.ppairs*(float)(-E_ZERO))/((float)ENC_CPR), 1.0f));
+  //				 memcpy(&comm_encoder.offset_lut, comm_encoder_cal.lut_arr, sizeof(comm_encoder.offset_lut));
+  //				 memcpy(&ENCODER_LUT, comm_encoder_cal.lut_arr, sizeof(comm_encoder_cal.lut_arr));
+         //for(int i = 0; i<128; i++){printf("%d\r\n", ENCODER_LUT[i]);}
+         if (!preference_writer_ready(prefs)){ preference_writer_open(&prefs);}
+         preference_writer_flush(&prefs);
+         preference_writer_close(&prefs);
+         preference_writer_load(prefs);
+         update_fsm(fsmstate, MENU_CMD);
 			 }
 
 			 break;
 
-		 case MOTOR_MODE:
-			 /* If CAN has timed out, reset all commands */
-			 if((CAN_TIMEOUT > 0 ) && (controller.timeout > CAN_TIMEOUT)){
-				 zero_commands(&controller);
-			 }
-			 /* Otherwise, commutate */
-			 else{
-				 torque_control(&controller);
-				 field_weaken(&controller);
-				 commutate(&controller, &comm_encoder);
-			 }
-			 controller.timeout ++;
-			 break;
+    case MOTOR_MODE:
+      /* If CAN has timed out, reset all commands */
+      if((CAN_TIMEOUT > 0 ) && (controller.timeout > CAN_TIMEOUT)){
+        zero_commands(&controller);
+      }
+      /* Otherwise, commutate */
+      else{
+        //torque_control(&controller);
+        //field_weaken(&controller);
+//        cal->theta_ref += W_CAL*DT;//(cal->time-T1);
+//        cal->cal_position.elec_angle = cal->theta_ref;
+//        commutate(controller, &cal->cal_position);
+        controller.i_q_des = 1.0;
+        controller.i_d_des = 0.0f;
+        commutate(&controller, &comm_encoder);
+      }
+      controller.timeout ++;
+      break;
 
 		 case SETUP_MODE:
 			 break;
@@ -81,8 +85,27 @@
 
 		 case INIT_TEMP_MODE:
 			 break;
-	 }
 
+		 case HOME_ENCODER:
+		   if(!comm_encoder.homed)
+         home_encoder(&comm_encoder, &controller, &comm_encoder_cal, controller.loop_count);
+		   else{
+		     printf("Encoder homed\r\n");
+		     comm_encoder_cal.started = 0;
+		     comm_encoder_cal.done_cal = 1;
+		     update_fsm(fsmstate, ENTER_E_ANGLE);
+		   }
+       break;
+		 case GET_E_ANGLE:
+		   if(comm_encoder_cal.ezero == 0)
+		     get_e_angel(&comm_encoder, &controller, &comm_encoder_cal, controller.loop_count);
+		   else{
+		     E_ZERO = comm_encoder_cal.ezero;
+         printf("E_ZERO: %d  %f\r\n", E_ZERO, TWO_PI_F*fmodf((comm_encoder.ppairs*(float)(-E_ZERO))/((float)ENC_CPR), 1.0f));
+         update_fsm(fsmstate, MOTOR_CMD);
+		   }
+       break;
+	 }
  }
 
  void fsm_enter_state(FSMStruct * fsmstate){
@@ -90,26 +113,26 @@
 	  * Do necessary setup   */
 
 		switch(fsmstate->state){
-				case MENU_MODE:
-				//printf("Entering Main Menu\r\n");
+      case MENU_MODE:
+				printf("Entering Main Menu\r\n");
 				enter_menu_state();
 				break;
 			case SETUP_MODE:
-				//printf("Entering Setup\r\n");
+				printf("Entering Setup\r\n");
 				enter_setup_state();
 				break;
 			case ENCODER_MODE:
-				//printf("Entering Encoder Mode\r\n");
+				printf("Entering Encoder Mode\r\n");
 				break;
 			case MOTOR_MODE:
 
-				//printf("Entering Motor Mode\r\n");
+				printf("Entering Motor Mode\r\n");
 				HAL_GPIO_WritePin(LED, GPIO_PIN_SET );
 				reset_foc(&controller);
-				drv_enable_gd(drv);
+				// drv_enable_gd(drv);
 				break;
 			case CALIBRATION_MODE:
-				//printf("Entering Calibration Mode\r\n");
+				printf("Entering Calibration Mode\r\n");
 				/* zero out all calibrations before starting */
 
 				comm_encoder_cal.done_cal = 0;
@@ -117,8 +140,14 @@
 				comm_encoder_cal.started = 0;
 				comm_encoder.e_zero = 0;
 				memset(&comm_encoder.offset_lut, 0, sizeof(comm_encoder.offset_lut));
-				drv_enable_gd(drv);
+				// drv_enable_gd(drv);
 				break;
+			case HOME_ENCODER:
+			  printf("Homing Encoder\r\n");
+			  break;
+			case GET_E_ANGLE:
+        printf("Getting E Value\r\n");
+        break;
 
 		}
  }
@@ -129,36 +158,44 @@
 
 		switch(fsmstate->state){
 			case MENU_MODE:
-				//printf("Leaving Main Menu\r\n");
+				printf("Leaving Main Menu\r\n");
 				fsmstate->ready = 1;
 				break;
 			case SETUP_MODE:
-				//printf("Leaving Setup Menu\r\n");
+				printf("Leaving Setup Menu\r\n");
 				fsmstate->ready = 1;
 				break;
 			case ENCODER_MODE:
-				//printf("Leaving Encoder Mode\r\n");
+				printf("Leaving Encoder Mode\r\n");
 				fsmstate->ready = 1;
 				break;
 			case MOTOR_MODE:
 				/* Don't stop commutating if there are high currents or FW happening */
 				if( (fabs(controller.i_q_filt)<1.0f) && (fabs(controller.i_d_filt)<1.0f) ){
 					fsmstate->ready = 1;
-					drv_disable_gd(drv);
+					// drv_disable_gd(drv);
 					reset_foc(&controller);
-					//printf("Leaving Motor Mode\r\n");
+					printf("Leaving Motor Mode\r\n");
 					HAL_GPIO_WritePin(LED, GPIO_PIN_RESET );
 				}
 				zero_commands(&controller);		// Set commands to zero
 				break;
 			case CALIBRATION_MODE:
-				//printf("Exiting Calibration Mode\r\n");
-				drv_disable_gd(drv);
+				printf("Exiting Calibration Mode\r\n");
+				// drv_disable_gd(drv);
 				//free(error_array);
 				//free(lut_array);
 
 				fsmstate->ready = 1;
 				break;
+      case HOME_ENCODER:
+        printf("Done Homing Encoder\r\n");
+        fsmstate->ready = 1;
+        break;
+      case GET_E_ANGLE:
+        printf("Done Finding E angle\r\n");
+        fsmstate->ready = 1;
+        break;
 		}
 
  }
@@ -224,8 +261,16 @@
 			break;
 		case MOTOR_MODE:
 			break;
+		case HOME_ENCODER:
+		  fsmstate->next_state = GET_E_ANGLE;
+      fsmstate->ready = 0;
+		  break;
+    case GET_E_ANGLE:
+      fsmstate->next_state = MOTOR_MODE;
+      fsmstate->ready = 0;
+      break;
 	}
-	//printf("FSM State: %d  %d\r\n", fsmstate.state, fsmstate.state_change);
+	printf("FSM State: %d  %d\r\n", fsmstate->state, fsmstate->state_change);
  }
 
 
@@ -259,7 +304,7 @@
 	    printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "x", "Max Position Gain (N-m/rad)", "0.0", "1000.0", KP_MAX);
 	    printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "d", "Max Velocity Gain (N-m/rad/s)", "0.0", "5.0", KD_MAX);
 	    printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "f", "FW Current Limit (A)", "0.0", "33.0", I_FW_MAX);
-	    //printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "h", "Temp Cutoff (C) (0 = none)", "0", "150", TEMP_MAX);
+	    printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "h", "Temp Cutoff (C) (0 = none)", "0", "150", TEMP_MAX);
 	    printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "c", "Continuous Current (A)", "0.0", "40.0", I_MAX_CONT);
 	    printf(" %-4s %-31s %-5s %-6s %.1f\n\r", "a", "Calibration Current (A)", "0.0", "20.0", I_CAL);
 	    printf("\r\n CAN:\r\n");

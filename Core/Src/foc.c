@@ -54,29 +54,31 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 void analog_sample (ControllerStruct *controller){
 	/* Sampe ADCs */
   /* Handle phase order swapping so that voltage/current/torque match encoder direction */
+  /* So this part is broken or atleast delayed by one cycle as we start the DMA transfer after we get the rsult of the last one*/
+//  while(adc_done < 2){ // busy loop to wait for conversion
+//    HAL_Delay(1); // this delay is far to long
+//  }
   if(!PHASE_ORDER){
-    controller->adc_a_raw = adc1_buf[0]; //TODO set channel
-    controller->adc_b_raw = adc2_buf[0]; //TODO set channel
+    controller->adc_a_raw = adc1_buf[0];
+    controller->adc_b_raw = adc2_buf[0];
   }
   else{
-    controller->adc_a_raw = adc2_buf[0];//HAL_ADC_GetValue(&ADC_CH_IB);
-    controller->adc_b_raw = adc1_buf[0]; //TODO set channel
+    controller->adc_a_raw = adc2_buf[0];
+    controller->adc_b_raw = adc1_buf[0];
   }
-  controller->adc_c_raw = adc1_buf[1];
-  controller->adc_vbus_raw = adc2_buf[1];
-
+//  controller->adc_c_raw = adc1_buf[1];
+//  controller->adc_vbus_raw = adc2_buf[1];
   adc_done = 0;
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc1_buf, ADC_BUF_LEN);
-  HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_buf, ADC_BUF_LEN);
-//  while(adc_done >= 2){ // busy loop to wait for conversion
-//    HAL_Delay(1);
-//  }
+//  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc1_buf, ADC_BUF_LEN);
+//  HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_buf, ADC_BUF_LEN);
 
-	controller->v_bus = (float)controller->adc_vbus_raw*V_SCALE;
+
+	controller->v_bus = 12.0; //(float)controller->adc_vbus_raw*V_SCALE;
 
   controller->i_a = I_SCALE*(float)(controller->adc_a_raw - controller->adc_a_offset);    // Calculate phase currents from ADC readings
   controller->i_b = I_SCALE*(float)(controller->adc_b_raw - controller->adc_b_offset);
-  controller->i_c = I_SCALE*(float)(controller->adc_c_raw - controller->adc_c_offset);
+  controller->i_c = -controller->i_a - controller->i_b;
+//  controller->i_c = I_SCALE*(float)(controller->adc_c_raw - controller->adc_c_offset);
 }
 
 void abc( float theta, float d, float q, float *a, float *b, float *c){
@@ -125,27 +127,27 @@ void zero_current(ControllerStruct *controller){
     uint32_t adc_a_offset = 0;
     uint32_t adc_b_offset = 0;
     uint32_t adc_c_offset = 0;
-    int n = 100;
-    controller->dtc_u = 0.f;
-    controller->dtc_v = 0.f;
-    controller->dtc_w = 0.f;
+    int n = 300;
+    controller->dtc_u = 0.5f;
+    controller->dtc_v = 0.5f;
+    controller->dtc_w = 0.5f;
     set_dtc(controller);
 
     for (int i = 0; i<n; i++){               // Average n samples
     	analog_sample(controller);
-    	HAL_Delay(10);
+    	HAL_Delay(1);
     	adc_a_offset += controller->adc_a_raw;
     	adc_b_offset += controller->adc_b_raw;
-    	adc_c_offset += controller->adc_c_raw;
+//    	adc_c_offset += controller->adc_c_raw;
      }
     controller->adc_a_offset = (int)((float)adc_a_offset/(float)n);
     controller->adc_b_offset = (int)((float)adc_b_offset/(float)n);
-    controller->adc_c_offset = (int)((float)adc_c_offset/(float)n);
+//    controller->adc_c_offset = (int)((float)adc_c_offset/(float)n);
 }
 
 void init_controller_params(ControllerStruct *controller){
 
-	controller->ki_d = KI_D;
+	  controller->ki_d = KI_D;
     controller->ki_q = KI_Q;
     controller->k_d = K_SCALE*I_BW;
     controller->k_q = K_SCALE*I_BW;
@@ -261,8 +263,8 @@ void commutate(ControllerStruct *controller, EncoderStruct *encoder)
   limit_norm(&controller->i_d_des, &controller->i_q_des, controller->i_max);	// 2.3 us
 
   /// PI Controller ///
-  float i_d_error = controller->i_d_des - controller->i_d;
-  float i_q_error = controller->i_q_des - controller->i_q;
+  float i_d_error = controller->i_d_des - controller->i_d_filt; //TODO swap back to unfiltered
+  float i_q_error = controller->i_q_des - controller->i_q_filt;
 
 
   // Calculate decoupling feed-forward voltages //
@@ -284,10 +286,10 @@ void commutate(ControllerStruct *controller, EncoderStruct *encoder)
   controller->v_q = fast_fmaxf(fast_fminf(controller->v_q, vq_max), -vq_max);
 
   controller->v_d = 0;
-  controller->v_q = 1;
-  limit_norm(&controller->v_d, &controller->v_q, controller->v_max);
+  controller->v_q = 0.2;
+//  limit_norm(&controller->v_d, &controller->v_q, controller->v_max);
 
-  abc(controller->theta_elec+1, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
+  abc(controller->theta_elec+0.5, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
 //  abc(controller->theta_elec + 1.5f*DT*controller->dtheta_elec, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
   svm(controller->v_max, controller->v_u, controller->v_v, controller->v_w, &controller->dtc_u, &controller->dtc_v, &controller->dtc_w); //space vector modulation
 

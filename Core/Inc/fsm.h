@@ -22,6 +22,8 @@ extern "C" {
 #define SETUP_MODE          4
 #define ENCODER_MODE        5
 #define INIT_TEMP_MODE      6
+#define HOME_ENCODER        7
+#define GET_E_ANGLE         8
 
 #define MENU_CMD			27
 #define MOTOR_CMD			'm'
@@ -30,6 +32,7 @@ extern "C" {
 #define SETUP_CMD			's'
 #define ZERO_CMD			'z'
 #define ENTER_CMD			13
+#define ENTER_E_ANGLE 48
 
 
 
