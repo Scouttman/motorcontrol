@@ -31,8 +31,8 @@ void order_phases(EncoderStruct *encoder, ControllerStruct *controller, CalStruc
         cal->theta_ref = 0;//W_CAL*cal->time;
         cal->cal_position.elec_angle = cal->theta_ref;
         cal->cal_position.elec_velocity = 0;
-        controller->i_d_des = I_CAL;
-        controller->i_q_des = 0.0f;
+        controller->i_d_des = 0.0f; //I_CAL; #TODO revert
+        controller->i_q_des =  I_CAL; //0.0f;
         commutate(controller, &cal->cal_position);
     	cal->theta_start = encoder->angle_multiturn[0];
     	return;
@@ -84,8 +84,8 @@ void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, Cal
         // Set voltage angle to zero, wait for rotor position to settle
         cal->theta_ref = 0;//W_CAL*cal->time;
         cal->cal_position.elec_angle = cal->theta_ref;
-        controller->i_d_des = I_CAL;
-        controller->i_q_des = 0.0f;
+        controller->i_d_des = 0.0f; //I_CAL; #TODO revert
+        controller->i_q_des =  I_CAL; //0.0f;
         commutate(controller, &cal->cal_position);
 
     	cal->theta_start = encoder->angle_multiturn[0];
@@ -116,8 +116,8 @@ void calibrate_encoder(EncoderStruct *encoder, ControllerStruct *controller, Cal
 	else if (cal->time < T1+4.0f*PI_F*PPAIRS/W_CAL){
 		// rotate voltage vector through one mechanical rotation in the negative direction
 		cal->theta_ref -= W_CAL*DT;//(cal->time-T1);
-		controller->i_d_des = I_CAL;
-		controller->i_q_des = 0.0f;
+    controller->i_d_des = 0.0f; //I_CAL; #TODO revert
+    controller->i_q_des =  I_CAL; //0.0f;
 		cal->cal_position.elec_angle = cal->theta_ref;
 		commutate(controller, &cal->cal_position);
 
@@ -186,17 +186,17 @@ void home_encoder(EncoderStruct *encoder, ControllerStruct *controller, CalStruc
     // Set voltage angle to zero, wait for rotor position to settle
     cal->theta_ref = 0;//W_CAL*cal->time;
     cal->cal_position.elec_angle = cal->theta_ref;
-    controller->i_d_des = I_CAL;
-    controller->i_q_des = 0.0f;
+    controller->i_d_des = 0.0f; //I_CAL; #TODO revert
+    controller->i_q_des =  I_CAL; //0.0f;
     commutate(controller, &cal->cal_position);
 
     cal->theta_start = encoder->angle_multiturn[0];
     cal->next_sample_time = cal->time;
     return;
   }
-  else if (cal->time < T1+2.0f*PI_F*PPAIRS/W_CAL){
+  else if (cal->time < T1+2.0f*PI_F*PPAIRS/WH_CAL){
     // rotate voltage vector through one mechanical rotation in the positive direction
-    cal->theta_ref += W_CAL*DT;//(cal->time-T1);
+    cal->theta_ref += WH_CAL*DT;//(cal->time-T1);
     cal->cal_position.elec_angle = cal->theta_ref;
     commutate(controller, &cal->cal_position);
 
@@ -206,7 +206,7 @@ void home_encoder(EncoderStruct *encoder, ControllerStruct *controller, CalStruc
       int error = encoder->pos - count_ref;//- encoder->raw;
   //			cal->error_arr[cal->sample_count] = error + ENC_CPR*(error<0);
 //      printf("%d %d %d %.3f\r\n", cal->sample_count, count_ref, error, cal->theta_ref);
-      cal->next_sample_time += 2.0f*PI_F/(W_CAL*SAMPLES_PER_PPAIR);
+      cal->next_sample_time += 2.0f*PI_F/(WH_CAL*SAMPLES_PER_PPAIR);
       if(cal->sample_count == PPAIRS*SAMPLES_PER_PPAIR-1){
         return;
       }
@@ -256,8 +256,8 @@ void get_e_angel(EncoderStruct *encoder, ControllerStruct *controller, CalStruct
       // Set voltage angle to zero, wait for rotor position to settle
       cal->theta_ref = 0;//W_CAL*cal->time;
       cal->cal_position.elec_angle = cal->theta_ref;
-      controller->i_d_des = I_CAL;
-      controller->i_q_des = 0.0f;
+      controller->i_d_des = 0.0f; //I_CAL; #TODO revert
+      controller->i_q_des =  I_CAL; //0.0f;
       commutate(controller, &cal->cal_position);
 
       cal->theta_start = encoder->angle_multiturn[0];

@@ -106,8 +106,11 @@ union {
     float pos;
     float a;
     float b;
+    float q;
+    float q_goal;
+    float q_set;
   };
-  char temp_array[3*4];
+  char temp_array[6*4];
 } cur_message;
 
 /* USER CODE END PV */
@@ -194,17 +197,17 @@ int main(void)
   if(isnan(V_MAX)){V_MAX = 65.0f;}
   if(isnan(V_MIN)){V_MIN = -65.0f;}
 
-  I_BW = 500; // band width?
+  I_BW = 10000; // band width?
   I_MAX = 1;
   I_MAX_CONT = 1.0;
-  I_CAL = 1.0; // current used for calibration
+  I_CAL = 0.5; //0.3; // current used for calibration
   PPAIRS = 7; // TODO forced pole pairs
   GR = 1; //gear ratio
-//  KT = 1; //torque cosntant
+  KT = 1; //torque cosntant
 //  KP_MAX = 10.0; //Max position gain (n-m/rad)
   KD_MAX = 1.0;// max velocity gain N-m/rad/s
-  V_MAX = 1.0;
-  V_MIN = -1.0;
+  V_MAX = 12.0;
+  V_MIN = -12.0;
 
 
 
@@ -230,32 +233,6 @@ int main(void)
   comm_encoder.m_zero = M_ZERO;
   comm_encoder.e_zero = E_ZERO;
   comm_encoder.ppairs = PPAIRS;
-  // ps_warmup(&comm_encoder, 100);			// clear the noisy data when the encoder first turns on
-
-//  if(EN_ENC_LINEARIZATION){memcpy(&comm_encoder.offset_lut, &ENCODER_LUT, sizeof(comm_encoder.offset_lut));}	// Copy the linearization lookup table
-//  else{memset(&comm_encoder.offset_lut, 0, sizeof(comm_encoder.offset_lut));}
-  //for(int i = 0; i<128; i++){printf("%d\r\n", comm_encoder.offset_lut[i]);}
-
-  /* DRV8323 setup */
-//  HAL_GPIO_WritePin(DRV_CS, GPIO_PIN_SET ); 	// CS high
-//  HAL_GPIO_WritePin(ENABLE_PIN, GPIO_PIN_SET );
-//  HAL_Delay(1);
-//  //drv_calibrate(drv);
-//  HAL_Delay(1);
-//  drv_write_DCR(drv, 0x0, DIS_GDF_EN, 0x0, PWM_MODE_3X, 0x0, 0x0, 0x0, 0x0, 0x1);
-//  HAL_Delay(1);
-//  drv_write_CSACR(drv, 0x0, 0x1, 0x0, CSA_GAIN_40, 0x0, 0x1, 0x1, 0x1, SEN_LVL_1_0);
-//  HAL_Delay(1);
-//  zero_current(&controller);
-//  HAL_Delay(1);
-//  drv_write_CSACR(drv, 0x0, 0x1, 0x0, CSA_GAIN_40, 0x1, 0x0, 0x0, 0x0, SEN_LVL_1_0);
-//  HAL_Delay(1);
-//  drv_write_OCPCR(drv, TRETRY_50US, DEADTIME_50NS, OCP_DEG_8US, OCP_DEG_8US, VDS_LVL_1_88);
-//  HAL_Delay(1);
-//  drv_disable_gd(drv);
-//  HAL_Delay(1);
-  //drv_enable_gd(drv);   */
-//  printf("ADC A OFFSET: %d     ADC B OFFSET: %d\r\n", controller.adc_a_offset, controller.adc_b_offset);
 
   /* Turn on PWM */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -323,8 +300,12 @@ int main(void)
 //	        printf("%.3f %d %d %d\r\n", controller.theta_elec, controller.adc_a_raw-controller.adc_a_offset ,controller.adc_b_raw - controller.adc_b_offset , controller.adc_c_raw - controller.adc_c_offset);
 	    cur_message.pos = controller.theta_elec;
 	    cur_message.a = controller.i_a;
-	    cur_message.b = controller.i_b;
-	    _write(1, cur_message.temp_array, 12);
+	    cur_message.b = controller.i_d;
+	    cur_message.q = controller.i_q;
+	    cur_message.q_goal = controller.i_q_des;
+	    cur_message.q_set = controller.v_q;
+//	    cur_message.b = controller.q_int;
+	    _write(1, cur_message.temp_array, 6*4);
 	    printf("\r\n");
 	  }
 //	  printf("pos:%d\r\n", comm_encoder.pos);

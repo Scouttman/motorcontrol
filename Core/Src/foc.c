@@ -59,7 +59,7 @@ void analog_sample (ControllerStruct *controller){
 //    HAL_Delay(1); // this delay is far to long
 //  }
   if(!PHASE_ORDER){
-    controller->adc_a_raw = adc1_buf[0];
+    controller->adc_a_raw = adc1_buf[0]; //Reversed order not sure if good
     controller->adc_b_raw = adc2_buf[0];
   }
   else{
@@ -263,34 +263,35 @@ void commutate(ControllerStruct *controller, EncoderStruct *encoder)
   limit_norm(&controller->i_d_des, &controller->i_q_des, controller->i_max);	// 2.3 us
 
   /// PI Controller ///
-  float i_d_error = controller->i_d_des - controller->i_d_filt; //TODO swap back to unfiltered
-  float i_q_error = controller->i_q_des - controller->i_q_filt;
+  float i_d_error = (controller->i_d_des - controller->i_d); //resved #TODO undo
+  float i_q_error = (controller->i_q_des - controller->i_q);
 
 
   // Calculate decoupling feed-forward voltages //
   float v_d_ff = 0.0f;//-controller->dtheta_elec*L_Q*controller->i_q;
   float v_q_ff = 0.0f;//controller->dtheta_elec*L_D*controller->i_d;
 
-  controller->v_d = controller->k_d*i_d_error + controller->d_int + v_d_ff;
+  controller->v_d = 0; //controller->k_d*i_d_error; // + controller->d_int + v_d_ff;
 
-  controller->v_d = fast_fmaxf(fast_fminf(controller->v_d, controller->v_max), -controller->v_max);
-
-  controller->d_int += controller->k_d*controller->ki_d*i_d_error;
-  controller->d_int = fast_fmaxf(fast_fminf(controller->d_int, controller->v_max), -controller->v_max);
-  float vq_max = sqrtf(controller->v_max*controller->v_max - controller->v_d*controller->v_d);
+//  controller->v_d = fast_fmaxf(fast_fminf(controller->v_d, controller->v_max), -controller->v_max);
+//
+//  controller->d_int += controller->k_d*controller->ki_d*i_d_error;
+//  controller->d_int = fast_fmaxf(fast_fminf(controller->d_int, controller->v_max), -controller->v_max);
+//  float vq_max = sqrtf(controller->v_max*controller->v_max - controller->v_d*controller->v_d);
+  float vq_max = controller->v_max;
 
   controller->v_q = controller->k_q*i_q_error + controller->q_int + v_q_ff;
-  controller->q_int += controller->k_q*controller->ki_q*i_q_error;
-  controller->q_int = fast_fmaxf(fast_fminf(controller->q_int, controller->v_max), -controller->v_max);
-  controller->v_ref = sqrtf(controller->v_d*controller->v_d + controller->v_q*controller->v_q);
+//  controller->q_int += controller->k_q*controller->ki_q*i_q_error;
+//  controller->q_int = fast_fmaxf(fast_fminf(controller->q_int, controller->v_max), -controller->v_max);
+//  controller->v_ref = sqrtf(controller->v_d*controller->v_d + controller->v_q*controller->v_q);
   controller->v_q = fast_fmaxf(fast_fminf(controller->v_q, vq_max), -vq_max);
 
-  controller->v_d = 0;
-  controller->v_q = 0.2;
-//  limit_norm(&controller->v_d, &controller->v_q, controller->v_max);
+//  controller->v_d = 0;
+//  controller->v_q = 0.5;
+  limit_norm(&controller->v_d, &controller->v_q, controller->v_max);
 
-  abc(controller->theta_elec+0.5, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
-//  abc(controller->theta_elec + 1.5f*DT*controller->dtheta_elec, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
+//  abc(controller->theta_elec+0.5, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
+  abc(controller->theta_elec + 1.5f*DT*controller->dtheta_elec, controller->v_d, controller->v_q, &controller->v_u, &controller->v_v, &controller->v_w); //inverse dq0 transform on voltages
   svm(controller->v_max, controller->v_u, controller->v_v, controller->v_w, &controller->dtc_u, &controller->dtc_v, &controller->dtc_w); //space vector modulation
 
   set_dtc(controller);
@@ -299,8 +300,8 @@ void commutate(ControllerStruct *controller, EncoderStruct *encoder)
 
 
 void torque_control(ControllerStruct *controller){
-
-    float torque_des = controller->kp*(controller->p_des - controller->theta_mech) + controller->t_ff + controller->kd*(controller->v_des - controller->dtheta_mech);
+    controller->kp = -1;
+    float torque_des = controller->kp*(controller->p_des - controller->theta_mech); //+ controller->t_ff + controller->kd*(controller->v_des - controller->dtheta_mech);
     controller->i_q_des = torque_des/(KT*GR);
     controller->i_d_des = 0.0f;
 
