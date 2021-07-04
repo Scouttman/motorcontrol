@@ -65,12 +65,20 @@
       /* Otherwise, commutate */
       else{
         torque_control(&controller);
+<<<<<<< HEAD
         field_weaken(&controller);
+=======
+//        field_weaken(&controller);
+>>>>>>> f1fb98ac1099932fa5ac8a67ed148116d6d117dc
 //        cal->theta_ref += W_CAL*DT;//(cal->time-T1);
 //        cal->cal_position.elec_angle = cal->theta_ref;
 //        commutate(controller, &cal->cal_position);
 //        controller.i_q_des = 0.5f;
+<<<<<<< HEAD
 //        controller.i_d_des = 0.0f;
+=======
+        controller.i_d_des = 0.0f;
+>>>>>>> f1fb98ac1099932fa5ac8a67ed148116d6d117dc
         commutate(&controller, &comm_encoder);
       }
       controller.timeout ++;

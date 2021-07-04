@@ -273,16 +273,17 @@ void commutate(ControllerStruct *controller, EncoderStruct *encoder)
 
   controller->v_d = controller->k_d*i_d_error; // + controller->d_int + v_d_ff;
 
-  controller->v_d = fast_fmaxf(fast_fminf(controller->v_d, controller->v_max), -controller->v_max);
-
-  controller->d_int += controller->k_d*controller->ki_d*i_d_error;
-  controller->d_int = fast_fmaxf(fast_fminf(controller->d_int, controller->v_max), -controller->v_max);
-  float vq_max = sqrtf(controller->v_max*controller->v_max - controller->v_d*controller->v_d);
+//  controller->v_d = fast_fmaxf(fast_fminf(controller->v_d, controller->v_max), -controller->v_max);
+//
+//  controller->d_int += controller->k_d*controller->ki_d*i_d_error;
+//  controller->d_int = fast_fmaxf(fast_fminf(controller->d_int, controller->v_max), -controller->v_max);
+//  float vq_max = sqrtf(controller->v_max*controller->v_max - controller->v_d*controller->v_d);
+  float vq_max = controller->v_max;
 
   controller->v_q = controller->k_q*i_q_error + controller->q_int + v_q_ff;
-  controller->q_int += controller->k_q*controller->ki_q*i_q_error;
-  controller->q_int = fast_fmaxf(fast_fminf(controller->q_int, controller->v_max), -controller->v_max);
-  controller->v_ref = sqrtf(controller->v_d*controller->v_d + controller->v_q*controller->v_q);
+//  controller->q_int += controller->k_q*controller->ki_q*i_q_error;
+//  controller->q_int = fast_fmaxf(fast_fminf(controller->q_int, controller->v_max), -controller->v_max);
+//  controller->v_ref = sqrtf(controller->v_d*controller->v_d + controller->v_q*controller->v_q);
   controller->v_q = fast_fmaxf(fast_fminf(controller->v_q, vq_max), -vq_max);
 
 //  controller->v_d = 0;
@@ -299,10 +300,8 @@ void commutate(ControllerStruct *controller, EncoderStruct *encoder)
 
 
 void torque_control(ControllerStruct *controller){
-//    controller->kp = -1; // force value for testing //TODO should not be <0 wrong
-    controller->kd = 1;
-    controller->v_des = 1;
-    float torque_des = controller->kp*(controller->p_des - controller->theta_mech) + controller->t_ff + controller->kd*(controller->v_des - controller->dtheta_mech);
+    controller->kp = -1;
+    float torque_des = controller->kp*(controller->p_des - controller->theta_mech); //+ controller->t_ff + controller->kd*(controller->v_des - controller->dtheta_mech);
     controller->i_q_des = torque_des/(KT*GR);
 //    controller->i_d_des = 0.0f;
 
