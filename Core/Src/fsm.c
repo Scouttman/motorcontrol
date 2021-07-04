@@ -64,13 +64,13 @@
       }
       /* Otherwise, commutate */
       else{
-        //torque_control(&controller);
-        //field_weaken(&controller);
+        torque_control(&controller);
+        field_weaken(&controller);
 //        cal->theta_ref += W_CAL*DT;//(cal->time-T1);
 //        cal->cal_position.elec_angle = cal->theta_ref;
 //        commutate(controller, &cal->cal_position);
-        controller.i_q_des = 1.0;
-        controller.i_d_des = 0.0f;
+//        controller.i_q_des = 0.5f;
+//        controller.i_d_des = 0.0f;
         commutate(&controller, &comm_encoder);
       }
       controller.timeout ++;
@@ -324,7 +324,7 @@
 			 printf("I_BW set to %f\r\n", I_BW);
 			 break;
 		 case 'i':
-			 CAN_ID = atoi(fsmstate->cmd_buff);
+		   CAN_ID = atoi(fsmstate->cmd_buff);
 			 printf("CAN_ID set to %d\r\n", CAN_ID);
 			 break;
 		 case 'm':
